@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install)",
+      "Bash(npm run dev:*)",
+      "Bash(cp:*)",
+      "Bash(gh auth:*)",
+      "Bash(git config:*)",
+      "Bash(git remote add:*)",
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run build:*)",
+      "Bash(git commit:*)",
+      "Bash(cat:*)",
+      "Bash(npm run vercel-build:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git init:*)",
+      "Bash(git branch:*)"
+    ],
+    "defaultMode": "acceptEdits"
+  }
+}
