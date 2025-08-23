@@ -34,6 +34,9 @@ import {
   Table,
   CheckCircle,
   AlertCircle,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
 } from "lucide-react"
 
 export default function CadasilDashboard() {
@@ -52,6 +55,8 @@ export default function CadasilDashboard() {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [showExperimentalMap, setShowExperimentalMap] = useState(false)
   const [hoveredProvince, setHoveredProvince] = useState(null)
+  const [sortField, setSortField] = useState(null)
+  const [sortDirection, setSortDirection] = useState('asc')
 
   // Colores para los gráficos - estilo médico profesional
   const COLORS = ["#2563EB", "#DC2626", "#059669", "#D97706", "#7C3AED", "#DB2777", "#0891B2", "#65A30D"]
@@ -575,6 +580,74 @@ export default function CadasilDashboard() {
       return true
     })
   }, [data, filters])
+
+  // Datos filtrados y ordenados
+  const sortedData = useMemo(() => {
+    if (!filteredData.length || !sortField) return filteredData
+
+    return [...filteredData].sort((a, b) => {
+      let aVal = a[sortField]
+      let bVal = b[sortField]
+      
+      // Handle special cases for different data types
+      if (sortField === 'edad_ingresada') {
+        aVal = aVal || 0
+        bVal = bVal || 0
+      } else if (sortField === 'sexo') {
+        aVal = aVal === 1 ? 'Masculino' : aVal === 2 ? 'Femenino' : 'No especificado'
+        bVal = bVal === 1 ? 'Masculino' : bVal === 2 ? 'Femenino' : 'No especificado'
+      } else if (sortField === 'provincia') {
+        const provinceMap = {
+          1: "Buenos Aires", 2: "Catamarca", 3: "Chaco", 4: "Chubut", 5: "Córdoba",
+          6: "Corrientes", 7: "Entre Ríos", 8: "Formosa", 9: "Jujuy", 10: "La Pampa",
+          11: "La Rioja", 12: "Mendoza", 13: "Misiones", 14: "Neuquén", 15: "Río Negro",
+          16: "Salta", 17: "San Juan", 18: "San Luis", 19: "Santa Cruz", 20: "Santa Fe",
+          21: "Santiago del Estero", 22: "Tierra del Fuego", 23: "Tucumán", 24: "CABA"
+        }
+        aVal = provinceMap[aVal] || 'Desconocido'
+        bVal = provinceMap[bVal] || 'Desconocido'
+      } else if (sortField === 'sintoma_inicial') {
+        const sintomaMap = {
+          1: "ACV/TIA", 2: "Migraña", 3: "Deterioro Cognitivo", 4: "Psiquiátrico",
+          5: "Convulsiones", 6: "Otros", 7: "Asintomático", 8: "Demencia", 9: "Múltiples"
+        }
+        aVal = sintomaMap[aVal] || 'Desconocido'
+        bVal = sintomaMap[bVal] || 'Desconocido'
+      } else if (sortField === 'valor_mmse_moca1') {
+        aVal = aVal || 0
+        bVal = bVal || 0
+      }
+
+      // Perform comparison
+      if (typeof aVal === 'string' && typeof bVal === 'string') {
+        return sortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal)
+      } else {
+        return sortDirection === 'asc' ? aVal - bVal : bVal - aVal
+      }
+    })
+  }, [filteredData, sortField, sortDirection])
+
+  // Función para manejar el ordenamiento
+  const handleSort = (field) => {
+    if (sortField === field) {
+      // Si ya está ordenado por este campo, cambiar dirección
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      // Nuevo campo, ordenar ascendente
+      setSortField(field)
+      setSortDirection('asc')
+    }
+  }
+
+  // Función para renderizar íconos de ordenamiento
+  const renderSortIcon = (field) => {
+    if (sortField !== field) {
+      return <ChevronsUpDown className="w-4 h-4 ml-1 text-gray-400" />
+    }
+    return sortDirection === 'asc' ? 
+      <ChevronUp className="w-4 h-4 ml-1 text-blue-500" /> : 
+      <ChevronDown className="w-4 h-4 ml-1 text-blue-500" />
+  }
 
   // Análisis avanzado basado en el estudio
   const advancedAnalysis = useMemo(() => {
@@ -1967,23 +2040,59 @@ export default function CadasilDashboard() {
                 <table className="min-w-full table-auto">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        ID
+                      <th 
+                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => handleSort('record_id')}
+                      >
+                        <div className="flex items-center">
+                          ID
+                          {renderSortIcon('record_id')}
+                        </div>
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Edad
+                      <th 
+                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => handleSort('edad_ingresada')}
+                      >
+                        <div className="flex items-center">
+                          Edad
+                          {renderSortIcon('edad_ingresada')}
+                        </div>
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Sexo
+                      <th 
+                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => handleSort('sexo')}
+                      >
+                        <div className="flex items-center">
+                          Sexo
+                          {renderSortIcon('sexo')}
+                        </div>
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Provincia
+                      <th 
+                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => handleSort('provincia')}
+                      >
+                        <div className="flex items-center">
+                          Provincia
+                          {renderSortIcon('provincia')}
+                        </div>
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Síntoma Inicial
+                      <th 
+                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => handleSort('sintoma_inicial')}
+                      >
+                        <div className="flex items-center">
+                          Síntoma Inicial
+                          {renderSortIcon('sintoma_inicial')}
+                        </div>
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        MMSE
+                      <th 
+                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => handleSort('valor_mmse_moca1')}
+                      >
+                        <div className="flex items-center">
+                          MMSE
+                          {renderSortIcon('valor_mmse_moca1')}
+                        </div>
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Método Dx
@@ -2000,7 +2109,7 @@ export default function CadasilDashboard() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredData.map((patient, index) => {
+                    {sortedData.map((patient, index) => {
                       const provinceMap = {
                         1: "Buenos Aires", 2: "Catamarca", 3: "Chaco", 4: "Chubut", 5: "Córdoba",
                         6: "Corrientes", 7: "Entre Ríos", 8: "Formosa", 9: "Jujuy", 10: "La Pampa",
