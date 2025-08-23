@@ -18,7 +18,12 @@
       "Bash(git remote set-url:*)",
       "Bash(git rev-parse:*)",
       "Bash(git init:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "Bash(git remote get-url:*)",
+      "Bash(git fetch:*)",
+      "Bash(git merge:*)",
+      "Bash(git stash:*)",
+      "Bash(curl:*)"
     ],
     "defaultMode": "acceptEdits"
   }

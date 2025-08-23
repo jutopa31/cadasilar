@@ -647,7 +647,7 @@ export default function CadasilDashboard() {
       render: (value, row) => (
         <div className="flex flex-col">
           <span>{value || "N/A"}</span>
-          {row.valor_mmse_moca2 && (
+          {row?.valor_mmse_moca2 && (
             <span className="text-xs text-gray-500">({row.valor_mmse_moca2})</span>
           )}
         </div>
@@ -678,12 +678,12 @@ export default function CadasilDashboard() {
       sortable: true,
       className: "max-w-xs",
       render: (value) => (
-        <div className="truncate" title={value}>
-          {value && value.includes("NOTCH3") ? (
+        <div className="truncate" title={value || ""}>
+          {value && typeof value === "string" && value.includes("NOTCH3") ? (
             <span className="text-green-700 font-medium">Positivo (NOTCH3)</span>
-          ) : value && value.includes("Positivo") ? (
+          ) : value && typeof value === "string" && value.includes("Positivo") ? (
             <span className="text-green-700">Positivo</span>
-          ) : value && value.includes("Pendiente") ? (
+          ) : value && typeof value === "string" && value.includes("Pendiente") ? (
             <span className="text-yellow-700">Pendiente</span>
           ) : (
             <span className="text-gray-500">N/A</span>
