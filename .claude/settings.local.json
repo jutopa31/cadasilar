@@ -18,7 +18,12 @@
       "Bash(git remote set-url:*)",
       "Bash(git rev-parse:*)",
       "Bash(git init:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "Bash(timeout:*)",
+      "Bash(npx next lint:*)",
+      "Bash(taskkill:*)",
+      "Bash(grep:*)",
+      "Bash(awk:*)"
     ],
     "defaultMode": "acceptEdits"
   }

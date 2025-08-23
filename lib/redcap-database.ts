@@ -12,17 +12,82 @@ export interface Patient {
   ciudad?: string
   direccion_aproximada?: string
   fecha_nacimiento?: string
-  edad_inicio?: number
+  edad_inicio?: number // Age when symptoms started
+  edad_actual?: number // Current age calculated from birth date
+  edad_ingresada?: number // Age entered manually (for reference/validation)
   diagnostico_inicial?: number
   resultado_genetico?: string
   exon?: number
   antecedentes_familiares?: number
   valor_mmse_moca1?: number
   valor_mmse_moca2?: number
+  validation_warnings?: string[] // Data validation warnings
+}
+
+// Calculate actual age from birth date
+function calculateAge(birthDate: string): number | undefined {
+  if (!birthDate) return undefined
+  
+  const birth = new Date(birthDate)
+  const today = new Date()
+  
+  if (isNaN(birth.getTime())) return undefined
+  
+  let age = today.getFullYear() - birth.getFullYear()
+  const monthDiff = today.getMonth() - birth.getMonth()
+  
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--
+  }
+  
+  return age > 0 ? age : undefined
+}
+
+// Validate age data integrity
+function validateAgeData(record: REDCapRecord): { warnings: string[], isValid: boolean } {
+  const warnings: string[] = []
+  let isValid = true
+  
+  const edadInicio = record.edad_inicio ? parseInt(record.edad_inicio) : undefined
+  const calculatedAge = calculateAge(record.fecha_nacimiento)
+  const edadIngresada = record.edad_ingresada ? parseInt(record.edad_ingresada) : undefined
+  
+  // Validate edad de inicio is reasonable (5-80 years)
+  if (edadInicio && (edadInicio < 5 || edadInicio > 80)) {
+    warnings.push(`Edad de inicio sospechosa: ${edadInicio} años`)
+    isValid = false
+  }
+  
+  // Validate that edad de inicio is less than calculated age
+  if (edadInicio && calculatedAge && edadInicio > calculatedAge) {
+    warnings.push(`Edad de inicio (${edadInicio}) mayor que edad actual (${calculatedAge})`)
+    isValid = false
+  }
+  
+  // Validate calculated age is reasonable for CADASIL (typically >16)
+  if (calculatedAge && calculatedAge < 16) {
+    warnings.push(`Edad actual muy baja para CADASIL: ${calculatedAge} años`)
+    isValid = false
+  }
+  
+  // If edad_ingresada exists, check it matches calculated age approximately
+  if (edadIngresada && calculatedAge && Math.abs(edadIngresada - calculatedAge) > 2) {
+    warnings.push(`Discrepancia entre edad ingresada (${edadIngresada}) y calculada (${calculatedAge})`)
+  }
+  
+  return { warnings, isValid }
 }
 
 // Transform REDCap data to our app format
-function transformREDCapRecord(record: REDCapRecord): Patient {
+function transformREDCapRecord(record: REDCapRecord): Patient & { edad_actual: number | undefined, validation_warnings: string[] } {
+  const calculatedAge = calculateAge(record.fecha_nacimiento)
+  const validation = validateAgeData(record)
+  
+  // Log validation warnings
+  if (validation.warnings.length > 0) {
+    console.warn(`Record ${record.record_id} validation warnings:`, validation.warnings)
+  }
+  
   return {
     id: record.record_id,
     record_id: record.record_id,
@@ -36,12 +101,15 @@ function transformREDCapRecord(record: REDCapRecord): Patient {
     direccion_aproximada: record.direccion_aproximada,
     fecha_nacimiento: record.fecha_nacimiento,
     edad_inicio: record.edad_inicio ? parseInt(record.edad_inicio) : undefined,
+    edad_actual: calculatedAge, // Use calculated age from birth date
+    edad_ingresada: record.edad_ingresada ? parseInt(record.edad_ingresada) : undefined, // Keep for reference
     diagnostico_inicial: record.diagnostico_inicial ? parseInt(record.diagnostico_inicial) : undefined,
     resultado_genetico: record.resultado_genetico,
     exon: record.exon ? parseInt(record.exon) : undefined,
     antecedentes_familiares: record.antecedentes_familiares ? parseInt(record.antecedentes_familiares) : undefined,
     valor_mmse_moca1: record.valor_mmse_moca1 ? parseInt(record.valor_mmse_moca1) : undefined,
     valor_mmse_moca2: record.valor_mmse_moca2 ? parseInt(record.valor_mmse_moca2) : undefined,
+    validation_warnings: validation.warnings,
   }
 }
 

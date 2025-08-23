@@ -25,3 +25,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# medical data files (sensitive patient information)
+julian/
+julian/*.csv
+*.csv
+/data/
+/medical-data/

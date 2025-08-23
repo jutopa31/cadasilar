@@ -9,14 +9,19 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   PieChart,
   Pie,
   Cell,
   LineChart,
   Line,
+  ScatterChart,
+  Scatter,
+  ComposedChart,
   ResponsiveContainer,
   Area,
   AreaChart,
+  ReferenceLine,
 } from "recharts"
 import {
   Upload,
@@ -38,6 +43,147 @@ import {
   ChevronDown,
   ChevronsUpDown,
 } from "lucide-react"
+
+// Calculate actual age from birth date
+function calculateAge(birthDate: string): number | undefined {
+  if (!birthDate) return undefined
+  
+  const birth = new Date(birthDate)
+  const today = new Date()
+  
+  if (isNaN(birth.getTime())) return undefined
+  
+  let age = today.getFullYear() - birth.getFullYear()
+  const monthDiff = today.getMonth() - birth.getMonth()
+  
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--
+  }
+  
+  return age > 0 ? age : undefined
+}
+
+// Process diagnosis method with proper logic
+function processDiagnosisMethod(patient: any): number {
+  // If metodo_diagnostico is explicitly set, use it
+  if (patient.metodo_diagnostico && patient.metodo_diagnostico !== "" && patient.metodo_diagnostico !== "0") {
+    return parseInt(patient.metodo_diagnostico)
+  }
+  
+  // Check checkbox fields - metodos_diagnosticos___1 and metodos_diagnosticos___2
+  const genetico = patient.metodos_diagnosticos___1 === 1 || patient.metodos_diagnosticos___1 === "1"
+  const biopsia = patient.metodos_diagnosticos___2 === 1 || patient.metodos_diagnosticos___2 === "1"
+  
+  if (genetico && biopsia) return 1 // If both, prioritize genetic
+  if (genetico) return 1 // Genetic
+  if (biopsia) return 2  // Skin biopsy
+  
+  // If no method specified or metodo_diagnostico is 0, it's "Nexo familiar confirmado"
+  return 4 // Nexo familiar confirmado
+}
+
+// Validate and process patient data
+function processPatientData(patient: any): any {
+  const calculatedAge = calculateAge(patient.fecha_nacimiento)
+  const warnings: string[] = []
+  
+  // Only validate calculated age
+  if (calculatedAge && calculatedAge < 16) {
+    warnings.push(`Edad muy baja para CADASIL: ${calculatedAge} años`)
+  }
+  
+  if (calculatedAge && calculatedAge > 100) {
+    warnings.push(`Edad muy alta: ${calculatedAge} años - verificar fecha de nacimiento`)
+  }
+  
+  if (!patient.fecha_nacimiento) {
+    warnings.push(`Sin fecha de nacimiento - edad no calculable`)
+  }
+  
+  // Process diagnosis method
+  const diagnosisMethod = processDiagnosisMethod(patient)
+  
+  return {
+    ...patient,
+    edad_actual: calculatedAge, // Only use calculated age, no fallback
+    metodo_diagnostico: diagnosisMethod, // Use processed diagnosis method
+    validation_warnings: warnings,
+  }
+}
+
+// Function to export filtered data to CSV
+function exportToCSV(data: any[], filename: string = 'pacientes-cadasilar.csv') {
+  if (!data || data.length === 0) {
+    alert('No hay datos para exportar')
+    return
+  }
+
+  // Define headers for CSV
+  const headers = [
+    'ID',
+    'Nombre',
+    'Edad',
+    'Sexo',
+    'Provincia', 
+    'Síntoma Inicial',
+    'MMSE',
+    'MMSE 2da Eval',
+    'Método Diagnóstico',
+    'Resultado Genético',
+    'Exón',
+    'Antecedentes Familiares'
+  ]
+
+  // Map data to CSV format
+  const csvData = data.map(patient => {
+    const sexoMap = { 1: 'Masculino', 2: 'Femenino' }
+    const sintomaMap = {
+      1: 'ACV/TIA', 2: 'Migraña', 3: 'Deterioro Cognitivo', 4: 'Psiquiátrico',
+      5: 'Convulsiones', 6: 'Otros', 7: 'Asintomático', 8: 'Demencia', 9: 'Múltiples'
+    }
+    const provinceMap = {
+      1: 'Buenos Aires', 2: 'Catamarca', 3: 'Chaco', 4: 'Chubut', 5: 'Córdoba',
+      6: 'Corrientes', 7: 'Entre Ríos', 8: 'Formosa', 9: 'Jujuy', 10: 'La Pampa',
+      11: 'La Rioja', 12: 'Mendoza', 13: 'Misiones', 14: 'Neuquén', 15: 'Río Negro',
+      16: 'Salta', 17: 'San Juan', 18: 'San Luis', 19: 'Santa Cruz', 20: 'Santa Fe',
+      21: 'Santiago del Estero', 22: 'Tierra del Fuego', 23: 'Tucumán', 24: 'CABA'
+    }
+    const metodoMap = {
+      1: 'Genético', 2: 'Biopsia', 3: 'Clínico', 4: 'Nexo Familiar'
+    }
+
+    return [
+      patient.record_id || '',
+      patient.nombre_apellido || '',
+      patient.edad_actual || '',
+      sexoMap[patient.sexo] || '',
+      provinceMap[patient.provincia] || '',
+      sintomaMap[patient.sintoma_inicial] || '',
+      patient.valor_mmse_moca1 || '',
+      patient.valor_mmse_moca2 || '',
+      metodoMap[patient.metodo_diagnostico] || '',
+      patient.resultado_genetico || '',
+      patient.exon || '',
+      patient.antecedentes_familiares === 1 ? 'Sí' : patient.antecedentes_familiares === 0 ? 'No' : ''
+    ]
+  })
+
+  // Create CSV content
+  const csvContent = [headers, ...csvData]
+    .map(row => row.map(field => `"${field}"`).join(','))
+    .join('\n')
+
+  // Create and download file
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  const url = URL.createObjectURL(blob)
+  link.setAttribute('href', url)
+  link.setAttribute('download', filename)
+  link.style.visibility = 'hidden'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
 
 export default function CadasilDashboard() {
   const [data, setData] = useState([])
@@ -66,6 +212,8 @@ export default function CadasilDashboard() {
     tertiary: "#059669",
     quaternary: "#D97706",
     accent: "#7C3AED",
+    unknown: "#9CA3AF",      // Gray color for unknown/pending data
+    knownExon: "#059669",    // Green for confirmed exon locations
   }
 
   useEffect(() => {
@@ -253,7 +401,9 @@ export default function CadasilDashboard() {
         },
         {
           record_id: 16,
-          edad_ingresada: 18,
+          fecha_nacimiento: "2006-03-15", // Born in 2006, currently 18, started symptoms at 16  
+          edad_inicio: 16, // Age when symptoms started
+          edad_ingresada: 18, // Current age entered manually
           sexo: 2,
           provincia: 1,
           sintoma_inicial: 5,
@@ -468,7 +618,9 @@ export default function CadasilDashboard() {
           factores_riesgo___5: 0,
         }
       ]
-        setData(realData)
+        // Apply validation to sample data
+        const processedData = realData.map(patient => processPatientData(patient))
+        setData(processedData)
       }
       setLoading(false)
     } catch (error) {
@@ -514,11 +666,15 @@ export default function CadasilDashboard() {
       const mappedData = mainRecords.map((row) => ({
         record_id: row.record_id,
         nombre_apellido: row.nombre_apellido,
+        fecha_nacimiento: row.fecha_nacimiento,
         edad_ingresada: row.edad_ingresada || 0,
+        edad_inicio: row.edad_inicio,
         sexo: row.sexo,
         provincia: row.provincia,
         sintoma_inicial: row.sintoma_inicial,
         metodo_diagnostico: row.metodo_diagnostico,
+        metodos_diagnosticos___1: row.metodos_diagnosticos___1,
+        metodos_diagnosticos___2: row.metodos_diagnosticos___2,
         antecedentes_familiares: row.antecedentes_familiares,
         dominancia: row.dominancia,
         valor_mmse_moca1: row.valor_mmse_moca1,
@@ -537,8 +693,11 @@ export default function CadasilDashboard() {
         factores_riesgo___5: row.factores_riesgo___5,
       }))
 
+      // Apply validation and age calculation to CSV data
+      const processedData = mappedData.map(patient => processPatientData(patient))
+
       // Actualizar los datos principales en lugar de solo comparación
-      setData(mappedData)
+      setData(processedData)
       setComparisonData(mainRecords)
       
       console.log(`Datos actualizados: ${mappedData.length} pacientes cargados`)
@@ -553,8 +712,8 @@ export default function CadasilDashboard() {
     if (!data.length) return []
 
     return data.filter((row) => {
-      // Filtro por edad
-      const age = row.edad_ingresada || 0
+      // Filtro por edad calculada únicamente
+      const age = row.edad_actual || 0
       if (age < filters.ageRange[0] || age > filters.ageRange[1]) return false
 
       // Filtro por sexo
@@ -590,7 +749,7 @@ export default function CadasilDashboard() {
       let bVal = b[sortField]
       
       // Handle special cases for different data types
-      if (sortField === 'edad_ingresada') {
+      if (sortField === 'edad_actual') {
         aVal = aVal || 0
         bVal = bVal || 0
       } else if (sortField === 'sexo') {
@@ -655,14 +814,16 @@ export default function CadasilDashboard() {
 
     // Distribución por dominancia (como en la tabla demográfica)
     const dominanceDistribution = filteredData.reduce((acc, row) => {
-      const dominance =
-        row.dominancia === 1
-          ? "Diestro"
-          : row.dominancia === 2
-            ? "Zurdo"
-            : row.dominancia === 3
-              ? "Ambidiestro"
-              : "Desconocido"
+      let dominance
+      if (row.dominancia === 1) {
+        dominance = "Diestro"
+      } else if (row.dominancia === 2) {
+        dominance = "Zurdo"  
+      } else if (row.dominancia === 3) {
+        dominance = "Ambidiestro"
+      } else {
+        dominance = "No especificado"
+      }
       acc[dominance] = (acc[dominance] || 0) + 1
       return acc
     }, {})
@@ -672,11 +833,31 @@ export default function CadasilDashboard() {
       (row) => row.resultado_genetico && row.resultado_genetico !== "Positivo, pendiente conseguir",
     )
 
+    // Separate known and unknown exons for proper visual hierarchy
     const exonDistribution = geneticResults.reduce((acc, row) => {
-      const exon = row.exon || "Desconocido"
-      acc[`Exón ${exon}`] = (acc[`Exón ${exon}`] || 0) + 1
+      const exon = row.exon
+      if (exon) {
+        // Known exons - confirmed genetic locations
+        acc[`Exón ${exon}`] = (acc[`Exón ${exon}`] || 0) + 1
+      } else {
+        // Unknown exons - separate category for pending/unknown results
+        acc["Exón Desconocido"] = (acc["Exón Desconocido"] || 0) + 1
+      }
       return acc
     }, {})
+
+    // Convert to array and sort for proper positioning (unknown values at the end)
+    const exonData = Object.entries(exonDistribution)
+      .map(([name, value]) => ({ 
+        name, 
+        value,
+        isUnknown: name === "Exón Desconocido"
+      }))
+      .sort((a, b) => {
+        if (a.isUnknown && !b.isUnknown) return 1  // Unknown goes to the right
+        if (!a.isUnknown && b.isUnknown) return -1 // Known exons stay left
+        return a.name.localeCompare(b.name) // Sort known exons naturally
+      })
 
     // Análisis de cohorte temporal (siguiendo el diseño CADASILAr-C y CADASILAr-Long)
     const ageGroups = {
@@ -688,7 +869,8 @@ export default function CadasilDashboard() {
     }
 
     filteredData.forEach((row) => {
-      const age = row.edad_ingresada
+      const age = row.edad_actual // Use only calculated age
+      if (!age) return // Skip if no calculated age
       if (age >= 18 && age <= 30) ageGroups["18-30"]++
       else if (age >= 31 && age <= 40) ageGroups["31-40"]++
       else if (age >= 41 && age <= 50) ageGroups["41-50"]++
@@ -705,21 +887,38 @@ export default function CadasilDashboard() {
       if (row.sintomas_adicionales___4 === 1) symptoms.push("Psiquiátrico")
       if (row.sintomas_adicionales___5 === 1) symptoms.push("Convulsiones")
 
-      const key = symptoms.length > 0 ? symptoms.join(" + ") : "Sin síntomas específicos"
+      // Check if all symptom fields are explicitly 0 (no symptoms) vs null/undefined (unknown)
+      const hasSymptomData = [
+        row.sintomas_adicionales___1,
+        row.sintomas_adicionales___2,
+        row.sintomas_adicionales___3,
+        row.sintomas_adicionales___4,
+        row.sintomas_adicionales___5
+      ].some(val => val === 0 || val === 1)
+
+      let key
+      if (symptoms.length > 0) {
+        key = symptoms.join(" + ")
+      } else {
+        key = "Información no disponible"
+      }
+
       acc[key] = (acc[key] || 0) + 1
       return acc
     }, {})
 
     // Progresión cognitiva (MMSE a lo largo del tiempo)
     const cognitionProgression = filteredData
-      .filter((row) => row.valor_mmse_moca1 && row.edad_ingresada)
+      .filter((row) => row.valor_mmse_moca1 && row.edad_actual)
       .map((row) => ({
-        edad: row.edad_ingresada,
+        edad: row.edad_actual, // Use only calculated age for cognitive analysis
         mmse1: row.valor_mmse_moca1,
         mmse2: row.valor_mmse_moca2 || null,
         hasProgression: row.valor_mmse_moca2 && row.valor_mmse_moca1,
         decline: row.valor_mmse_moca2 && row.valor_mmse_moca1 ? row.valor_mmse_moca1 - row.valor_mmse_moca2 : 0,
       }))
+      .sort((a, b) => a.edad - b.edad) // Sort by age for proper trend visualization
+
 
     // Factores de riesgo vascular (como en el estudio)
     const vascularRiskFactors = {
@@ -731,13 +930,26 @@ export default function CadasilDashboard() {
     }
 
     return {
-      dominanceDistribution: Object.entries(dominanceDistribution).map(([name, value]) => ({ name, value })),
-      exonDistribution: Object.entries(exonDistribution).map(([name, value]) => ({ name, value })),
+      dominanceDistribution: Object.entries(dominanceDistribution).map(([name, value]) => ({ 
+        name, 
+        value,
+        isUnknown: name === "No especificado"
+      })),
+      exonDistribution: exonData,
       ageGroups: Object.entries(ageGroups).map(([name, value]) => ({ name, value })),
       symptomCombinations: Object.entries(symptomCombinations)
-        .sort((a, b) => b[1] - a[1])
+        .sort((a, b) => {
+          // Sort unknown data to the end
+          if (a[0] === "Información no disponible" && b[0] !== "Información no disponible") return 1
+          if (a[0] !== "Información no disponible" && b[0] === "Información no disponible") return -1
+          return b[1] - a[1]
+        })
         .slice(0, 10)
-        .map(([name, value]) => ({ name, value })),
+        .map(([name, value]) => ({ 
+          name, 
+          value,
+          isUnknown: name === "Información no disponible"
+        })),
       cognitionProgression,
       vascularRiskFactors: Object.entries(vascularRiskFactors).map(([name, value]) => ({
         name,
@@ -749,6 +961,7 @@ export default function CadasilDashboard() {
         genetic: filteredData.filter((row) => row.metodo_diagnostico === 1).length,
         skinBiopsy: filteredData.filter((row) => row.metodo_diagnostico === 2).length,
         clinical: filteredData.filter((row) => row.metodo_diagnostico === 3).length,
+        familyLink: filteredData.filter((row) => row.metodo_diagnostico === 4).length,
       },
     }
   }, [filteredData])
@@ -797,8 +1010,8 @@ export default function CadasilDashboard() {
     }, {})
 
     const ageData = filteredData
-      .filter((row) => row.edad_ingresada && row.edad_ingresada > 0)
-      .map((row) => ({ edad: row.edad_ingresada, id: row.record_id }))
+      .filter((row) => row.edad_actual && row.edad_actual > 0)
+      .map((row) => ({ edad: row.edad_actual, id: row.record_id }))
 
     const avgAge = ageData.reduce((sum, item) => sum + item.edad, 0) / ageData.length || 0
 
@@ -1194,14 +1407,42 @@ export default function CadasilDashboard() {
                 <h3 className="text-lg font-semibold mb-4 text-gray-900">Dominancia Manual</h3>
                 <div className="text-sm text-gray-600 mb-4">
                   Distribución según lateralidad (como Tabla demográfica)
+                  <div className="flex items-center gap-4 mt-2 text-xs">
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded" style={{ backgroundColor: MEDICAL_COLORS.secondary }}></div>
+                      <span>Datos confirmados</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded" style={{ backgroundColor: MEDICAL_COLORS.unknown }}></div>
+                      <span>No especificado</span>
+                    </div>
+                  </div>
                 </div>
                 <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={advancedAnalysis.dominanceDistribution}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
                     <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="value" fill={MEDICAL_COLORS.secondary} />
+                    <Tooltip 
+                      formatter={(value, name, props) => [
+                        value,
+                        props.payload.isUnknown ? "Casos sin especificar" : "Casos confirmados"
+                      ]}
+                      labelStyle={{ color: '#374151' }}
+                      contentStyle={{
+                        backgroundColor: 'white',
+                        border: '1px solid #E5E7EB',
+                        borderRadius: '8px'
+                      }}
+                    />
+                    <Bar dataKey="value">
+                      {advancedAnalysis.dominanceDistribution?.map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={entry.isUnknown ? MEDICAL_COLORS.unknown : MEDICAL_COLORS.secondary}
+                        />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -1380,6 +1621,10 @@ export default function CadasilDashboard() {
                       <span>Diagnóstico clínico:</span>
                       <span className="font-semibold">{advancedAnalysis.geneticConfirmation?.clinical || 0}</span>
                     </div>
+                    <div className="flex justify-between">
+                      <span>Nexo familiar:</span>
+                      <span className="font-semibold">{advancedAnalysis.geneticConfirmation?.familyLink || 0}</span>
+                    </div>
                   </div>
                 </div>
 
@@ -1408,14 +1653,53 @@ export default function CadasilDashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="bg-white p-6 rounded-lg shadow-md">
                 <h3 className="text-lg font-semibold mb-4 text-gray-900">Distribución por Exón</h3>
-                <div className="text-sm text-gray-600 mb-4">Localización de variantes NOTCH3 encontradas</div>
+                <div className="text-sm text-gray-600 mb-4">
+                  Localización de variantes NOTCH3 encontradas
+                  <div className="flex items-center gap-4 mt-2 text-xs">
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded" style={{ backgroundColor: MEDICAL_COLORS.knownExon }}></div>
+                      <span>Exones confirmados</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded" style={{ backgroundColor: MEDICAL_COLORS.unknown }}></div>
+                      <span>Pendientes de confirmación</span>
+                    </div>
+                  </div>
+                </div>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={advancedAnalysis.exonDistribution}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
+                    <XAxis 
+                      dataKey="name" 
+                      angle={-45} 
+                      textAnchor="end" 
+                      height={80}
+                      interval={0}
+                    />
                     <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="value" fill={MEDICAL_COLORS.quaternary} />
+                    <Tooltip 
+                      formatter={(value, name, props) => [
+                        value,
+                        props.payload.isUnknown ? "Casos pendientes" : "Casos confirmados"
+                      ]}
+                      labelStyle={{ color: '#374151' }}
+                      contentStyle={{
+                        backgroundColor: 'white',
+                        border: '1px solid #E5E7EB',
+                        borderRadius: '8px'
+                      }}
+                    />
+                    <Bar 
+                      dataKey="value" 
+                      fill={(entry) => entry.isUnknown ? MEDICAL_COLORS.unknown : MEDICAL_COLORS.knownExon}
+                    >
+                      {advancedAnalysis.exonDistribution?.map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={entry.isUnknown ? MEDICAL_COLORS.unknown : MEDICAL_COLORS.knownExon}
+                        />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -1430,7 +1714,8 @@ export default function CadasilDashboard() {
                         { name: "Genético", value: advancedAnalysis.geneticConfirmation?.genetic || 0 },
                         { name: "Biopsia", value: advancedAnalysis.geneticConfirmation?.skinBiopsy || 0 },
                         { name: "Clínico", value: advancedAnalysis.geneticConfirmation?.clinical || 0 },
-                      ]}
+                        { name: "Nexo Familiar", value: advancedAnalysis.geneticConfirmation?.familyLink || 0 },
+                      ].filter(item => item.value > 0)}
                       cx="50%"
                       cy="50%"
                       outerRadius={100}
@@ -1440,6 +1725,7 @@ export default function CadasilDashboard() {
                       <Cell fill={MEDICAL_COLORS.primary} />
                       <Cell fill={MEDICAL_COLORS.secondary} />
                       <Cell fill={MEDICAL_COLORS.tertiary} />
+                      <Cell fill={MEDICAL_COLORS.accent} />
                     </Pie>
                     <Tooltip />
                   </PieChart>
@@ -1517,34 +1803,120 @@ export default function CadasilDashboard() {
               <div className="bg-white p-6 rounded-lg shadow-md">
                 <h3 className="text-lg font-semibold mb-4 text-gray-900">Combinaciones de Síntomas</h3>
                 <div className="text-sm text-gray-600 mb-4">Presentaciones clínicas más frecuentes</div>
+                
+                {/* Legend */}
+                <div className="flex items-center justify-center space-x-6 mb-4 text-sm">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 rounded" style={{ backgroundColor: MEDICAL_COLORS.secondary }}></div>
+                    <span>Casos confirmados</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 rounded" style={{ backgroundColor: MEDICAL_COLORS.unknown }}></div>
+                    <span>Información pendiente</span>
+                  </div>
+                </div>
+
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={advancedAnalysis.symptomCombinations}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
                     <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="value" fill={MEDICAL_COLORS.secondary} />
+                    <Tooltip 
+                      content={(props) => {
+                        if (props.active && props.payload && props.payload.length > 0) {
+                          const data = props.payload[0].payload
+                          return (
+                            <div className="bg-white p-3 border rounded shadow-lg">
+                              <p className="font-medium">{data.name}</p>
+                              <p className="text-sm">
+                                Casos: {data.value}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {data.isUnknown ? "Casos pendientes" : "Casos confirmados"}
+                              </p>
+                            </div>
+                          )
+                        }
+                        return null
+                      }}
+                    />
+                    <Bar dataKey="value">
+                      {advancedAnalysis.symptomCombinations.map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={entry.isUnknown ? MEDICAL_COLORS.unknown : MEDICAL_COLORS.secondary}
+                        />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
 
               <div className="bg-white p-6 rounded-lg shadow-md">
                 <h3 className="text-lg font-semibold mb-4 text-gray-900">Progresión Cognitiva (MMSE)</h3>
-                <div className="text-sm text-gray-600 mb-4">Relación entre edad y puntuación MMSE</div>
+                <div className="text-sm text-gray-600 mb-4">
+                  Relación entre edad y deterioro cognitivo. Cada punto representa un paciente.
+                </div>
                 <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={advancedAnalysis.cognitionProgression}>
+                  <ComposedChart data={advancedAnalysis.cognitionProgression}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="edad" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line
-                      type="monotone"
-                      dataKey="mmse1"
-                      stroke={MEDICAL_COLORS.accent}
-                      strokeWidth={2}
-                      dot={{ r: 4 }}
+                    <XAxis 
+                      type="number"
+                      dataKey="edad" 
+                      domain={['dataMin - 2', 'dataMax + 2']}
+                      label={{ value: 'Edad (años)', position: 'insideBottom', offset: -5 }}
                     />
-                  </LineChart>
+                    <YAxis 
+                      type="number"
+                      domain={[0, 30]}
+                      label={{ value: 'Puntuación MMSE', angle: -90, position: 'insideLeft' }}
+                    />
+                    <Tooltip 
+                      content={(props) => {
+                        if (props.active && props.payload && props.payload.length > 0) {
+                          const data = props.payload[0].payload
+                          return (
+                            <div className="bg-white p-3 border rounded shadow-lg">
+                              <p className="font-medium">Paciente</p>
+                              <p className="text-sm">Edad: {data.edad} años</p>
+                              <p className="text-sm">MMSE: {data.mmse1} puntos</p>
+                              {data.mmse2 && (
+                                <p className="text-xs text-gray-500">
+                                  Segunda evaluación: {data.mmse2} puntos
+                                </p>
+                              )}
+                            </div>
+                          )
+                        }
+                        return null
+                      }}
+                    />
+                    <Scatter
+                      dataKey="mmse1"
+                      name="Pacientes"
+                      fill={MEDICAL_COLORS.primary}
+                      stroke={MEDICAL_COLORS.primary}
+                      strokeWidth={1}
+                      shape="circle"
+                    />
+                    <Legend
+                      content={(props) => {
+                        const { payload } = props
+                        return (
+                          <div className="flex justify-center items-center mt-4 space-x-6">
+                            <div className="flex items-center">
+                              <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: MEDICAL_COLORS.primary }}></div>
+                              <span className="text-sm text-gray-700">Pacientes</span>
+                            </div>
+                            <div className="flex items-center">
+                              <div className="w-6 h-0.5 mr-2" style={{ backgroundColor: MEDICAL_COLORS.accent, borderStyle: 'dashed' }}></div>
+                              <span className="text-sm text-gray-700">Tendencia de decline</span>
+                            </div>
+                          </div>
+                        )
+                      }}
+                    />
+                  </ComposedChart>
                 </ResponsiveContainer>
               </div>
             </div>
@@ -2030,8 +2402,19 @@ export default function CadasilDashboard() {
                   <Table className="w-6 h-6 mr-2 text-green-600" />
                   Tabla Completa de Pacientes (N = {filteredData.length})
                 </h3>
-                <div className="text-sm text-gray-600">
-                  Datos filtrados según criterios seleccionados
+                <div className="flex items-center space-x-4">
+                  <div className="text-sm text-gray-600">
+                    Datos filtrados según criterios seleccionados
+                  </div>
+                  <button
+                    onClick={() => exportToCSV(filteredData, `pacientes-cadasilar-${new Date().toISOString().split('T')[0]}.csv`)}
+                    className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Exportar CSV
+                  </button>
                 </div>
               </div>
 
@@ -2051,11 +2434,20 @@ export default function CadasilDashboard() {
                       </th>
                       <th 
                         className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                        onClick={() => handleSort('edad_ingresada')}
+                        onClick={() => handleSort('nombre_apellido')}
+                      >
+                        <div className="flex items-center">
+                          Nombre
+                          {renderSortIcon('nombre_apellido')}
+                        </div>
+                      </th>
+                      <th 
+                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => handleSort('edad_actual')}
                       >
                         <div className="flex items-center">
                           Edad
-                          {renderSortIcon('edad_ingresada')}
+                          {renderSortIcon('edad_actual')}
                         </div>
                       </th>
                       <th 
@@ -2081,9 +2473,10 @@ export default function CadasilDashboard() {
                         onClick={() => handleSort('sintoma_inicial')}
                       >
                         <div className="flex items-center">
-                          Síntoma Inicial
+                          <span className="text-purple-700">Síntoma Inicial</span>
                           {renderSortIcon('sintoma_inicial')}
                         </div>
+                        <div className="text-xs font-normal text-gray-400 lowercase">tipo síntoma</div>
                       </th>
                       <th 
                         className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
@@ -2124,7 +2517,7 @@ export default function CadasilDashboard() {
                       }
                       
                       const metodoMap = {
-                        1: "Genético", 2: "Biopsia", 3: "Clínico"
+                        1: "Genético", 2: "Biopsia", 3: "Clínico", 4: "Nexo Familiar"
                       }
 
                       return (
@@ -2132,8 +2525,23 @@ export default function CadasilDashboard() {
                           <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {patient.record_id}
                           </td>
+                          <td className="px-4 py-4 text-sm text-gray-900 max-w-xs">
+                            <div className="truncate" title={patient.nombre_apellido}>
+                              {patient.nombre_apellido || "N/A"}
+                            </div>
+                          </td>
                           <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {patient.edad_ingresada || "N/A"}
+                            <div className="flex items-center">
+                              <span className="font-medium">
+                                {patient.edad_actual || "N/A"}
+                              </span>
+                              {patient.fecha_nacimiento && (
+                                <span className="ml-1 text-xs text-gray-500" title={`Calculada desde: ${patient.fecha_nacimiento}`}>📅</span>
+                              )}
+                              {!patient.fecha_nacimiento && (
+                                <span className="ml-1 text-xs text-gray-400" title="Sin fecha de nacimiento">⚠</span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                             {patient.sexo === 1 ? "M" : patient.sexo === 2 ? "F" : "N/A"}
@@ -2142,7 +2550,15 @@ export default function CadasilDashboard() {
                             {provinceMap[patient.provincia] || "N/A"}
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {sintomaMap[patient.sintoma_inicial] || "N/A"}
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              patient.sintoma_inicial === 1 ? "bg-red-100 text-red-800" :  // ACV/TIA
+                              patient.sintoma_inicial === 2 ? "bg-purple-100 text-purple-800" : // Migraña
+                              patient.sintoma_inicial === 3 ? "bg-orange-100 text-orange-800" : // Deterioro Cognitivo
+                              patient.sintoma_inicial === 4 ? "bg-blue-100 text-blue-800" : // Psiquiátrico
+                              "bg-gray-100 text-gray-800"
+                            }`}>
+                              {sintomaMap[patient.sintoma_inicial] || "N/A"}
+                            </span>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                             <div className="flex flex-col">
@@ -2156,7 +2572,9 @@ export default function CadasilDashboard() {
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                               patient.metodo_diagnostico === 1 ? "bg-blue-100 text-blue-800" :
                               patient.metodo_diagnostico === 2 ? "bg-green-100 text-green-800" :
-                              "bg-yellow-100 text-yellow-800"
+                              patient.metodo_diagnostico === 3 ? "bg-yellow-100 text-yellow-800" :
+                              patient.metodo_diagnostico === 4 ? "bg-purple-100 text-purple-800" :
+                              "bg-gray-100 text-gray-800"
                             }`}>
                               {metodoMap[patient.metodo_diagnostico] || "N/A"}
                             </span>
@@ -2234,10 +2652,26 @@ export default function CadasilDashboard() {
                     <div>Síntoma: <strong>{filters.symptom === "all" ? "Todos" : filters.symptom}</strong></div>
                   </div>
                 </div>
+
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-green-900 mb-2">Cálculo de Edad</h4>
+                  <div className="text-xs space-y-1">
+                    <div><strong>Edad:</strong> Calculada automáticamente desde fecha de nacimiento</div>
+                    <div><strong>📅</strong> indica fecha de nacimiento disponible</div>
+                    <div><strong>⚠</strong> indica fecha de nacimiento faltante (N/A)</div>
+                    <div><strong>Validación:</strong> Solo se usan edades calculadas</div>
+                  </div>
+                </div>
               </div>
 
               {/* Nota sobre datos */}
-              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>✓ Sistema de Edad Simplificado:</strong> Se usa únicamente la edad calculada desde fecha de nacimiento 
+                  para garantizar consistencia. Los campos confusos de REDCap han sido eliminados del análisis.
+                </p>
+              </div>
+              <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                 <p className="text-sm text-yellow-800">
                   <strong>Nota:</strong> Los datos mostrados reflejan el registro real CADASILAr. 
                   MMSE entre paréntesis indica segunda evaluación. 

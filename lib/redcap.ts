@@ -16,7 +16,8 @@ export interface REDCapRecord {
   ciudad?: string
   direccion_aproximada?: string
   fecha_nacimiento?: string
-  edad_inicio?: string
+  edad_inicio?: string // Age when symptoms started
+  edad_ingresada?: string // Current age entered manually
   diagnostico_inicial?: string
   resultado_genetico?: string
   exon?: string
