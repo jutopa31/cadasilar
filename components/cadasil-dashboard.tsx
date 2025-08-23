@@ -35,9 +35,26 @@ import {
   CheckCircle,
   AlertCircle,
 } from "lucide-react"
+import { SortableTable, type ColumnDef } from "@/components/ui/sortable-table"
+
+interface PatientData {
+  record_id: number | string | undefined
+  edad_ingresada?: number | null
+  sexo?: number | null
+  provincia?: number | null
+  sintoma_inicial?: number | null
+  metodo_diagnostico?: number | null
+  antecedentes_familiares?: number | null
+  dominancia?: number | null
+  valor_mmse_moca1?: number | null
+  valor_mmse_moca2?: number | null
+  resultado_genetico?: string | null
+  exon?: number | null
+  [key: string]: any
+}
 
 export default function CadasilDashboard() {
-  const [data, setData] = useState([])
+  const [data, setData] = useState<PatientData[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedTab, setSelectedTab] = useState("overview")
   const [comparisonData, setComparisonData] = useState(null)
@@ -575,6 +592,128 @@ export default function CadasilDashboard() {
       return true
     })
   }, [data, filters])
+
+  // Column definitions for sortable table
+  const tableColumns: ColumnDef<PatientData>[] = [
+    {
+      key: "record_id",
+      label: "ID",
+      sortable: true,
+      render: (value) => <span className="font-medium">{value}</span>
+    },
+    {
+      key: "edad_ingresada",
+      label: "Edad",
+      sortable: true,
+      render: (value) => value || "N/A"
+    },
+    {
+      key: "sexo",
+      label: "Sexo",
+      sortable: true,
+      render: (value) => value === 1 ? "M" : value === 2 ? "F" : "N/A"
+    },
+    {
+      key: "provincia",
+      label: "Provincia",
+      sortable: true,
+      render: (value) => {
+        const provinceMap: Record<number, string> = {
+          1: "Buenos Aires", 2: "Catamarca", 3: "Chaco", 4: "Chubut", 5: "Córdoba",
+          6: "Corrientes", 7: "Entre Ríos", 8: "Formosa", 9: "Jujuy", 10: "La Pampa",
+          11: "La Rioja", 12: "Mendoza", 13: "Misiones", 14: "Neuquén", 15: "Río Negro",
+          16: "Salta", 17: "San Juan", 18: "San Luis", 19: "Santa Cruz", 20: "Santa Fe",
+          21: "Santiago del Estero", 22: "Tierra del Fuego", 23: "Tucumán", 24: "CABA"
+        }
+        return provinceMap[value] || "N/A"
+      }
+    },
+    {
+      key: "sintoma_inicial",
+      label: "Síntoma Inicial",
+      sortable: true,
+      render: (value) => {
+        const sintomaMap: Record<number, string> = {
+          1: "ACV/TIA", 2: "Migraña", 3: "Deterioro Cognitivo", 4: "Psiquiátrico",
+          5: "Convulsiones", 6: "Otros", 7: "Asintomático", 8: "Demencia", 9: "Múltiples"
+        }
+        return sintomaMap[value] || "N/A"
+      }
+    },
+    {
+      key: "valor_mmse_moca1",
+      label: "MMSE",
+      sortable: true,
+      render: (value, row) => (
+        <div className="flex flex-col">
+          <span>{value || "N/A"}</span>
+          {row.valor_mmse_moca2 && (
+            <span className="text-xs text-gray-500">({row.valor_mmse_moca2})</span>
+          )}
+        </div>
+      )
+    },
+    {
+      key: "metodo_diagnostico",
+      label: "Método Dx",
+      sortable: true,
+      render: (value) => {
+        const metodoMap: Record<number, string> = {
+          1: "Genético", 2: "Biopsia", 3: "Clínico"
+        }
+        return (
+          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+            value === 1 ? "bg-blue-100 text-blue-800" :
+            value === 2 ? "bg-green-100 text-green-800" :
+            "bg-yellow-100 text-yellow-800"
+          }`}>
+            {metodoMap[value] || "N/A"}
+          </span>
+        )
+      }
+    },
+    {
+      key: "resultado_genetico",
+      label: "Resultado Genético",
+      sortable: true,
+      className: "max-w-xs",
+      render: (value) => (
+        <div className="truncate" title={value}>
+          {value && value.includes("NOTCH3") ? (
+            <span className="text-green-700 font-medium">Positivo (NOTCH3)</span>
+          ) : value && value.includes("Positivo") ? (
+            <span className="text-green-700">Positivo</span>
+          ) : value && value.includes("Pendiente") ? (
+            <span className="text-yellow-700">Pendiente</span>
+          ) : (
+            <span className="text-gray-500">N/A</span>
+          )}
+        </div>
+      )
+    },
+    {
+      key: "exon",
+      label: "Exón",
+      sortable: true,
+      render: (value) => value ? (
+        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
+          {value}
+        </span>
+      ) : "N/A"
+    },
+    {
+      key: "antecedentes_familiares",
+      label: "Ant. Familiares",
+      sortable: true,
+      render: (value) => (
+        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+          value === 1 ? "bg-red-100 text-red-800" : "bg-gray-100 text-gray-800"
+        }`}>
+          {value === 1 ? "Sí" : value === 0 ? "No" : "N/A"}
+        </span>
+      )
+    }
+  ]
 
   // Análisis avanzado basado en el estudio
   const advancedAnalysis = useMemo(() => {
@@ -1962,131 +2101,12 @@ export default function CadasilDashboard() {
                 </div>
               </div>
 
-              {/* Tabla responsive */}
-              <div className="overflow-x-auto">
-                <table className="min-w-full table-auto">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        ID
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Edad
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Sexo
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Provincia
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Síntoma Inicial
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        MMSE
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Método Dx
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Resultado Genético
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Exón
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Ant. Familiares
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredData.map((patient, index) => {
-                      const provinceMap = {
-                        1: "Buenos Aires", 2: "Catamarca", 3: "Chaco", 4: "Chubut", 5: "Córdoba",
-                        6: "Corrientes", 7: "Entre Ríos", 8: "Formosa", 9: "Jujuy", 10: "La Pampa",
-                        11: "La Rioja", 12: "Mendoza", 13: "Misiones", 14: "Neuquén", 15: "Río Negro",
-                        16: "Salta", 17: "San Juan", 18: "San Luis", 19: "Santa Cruz", 20: "Santa Fe",
-                        21: "Santiago del Estero", 22: "Tierra del Fuego", 23: "Tucumán", 24: "CABA"
-                      }
-                      
-                      const sintomaMap = {
-                        1: "ACV/TIA", 2: "Migraña", 3: "Deterioro Cognitivo", 4: "Psiquiátrico",
-                        5: "Convulsiones", 6: "Otros", 7: "Asintomático", 8: "Demencia", 9: "Múltiples"
-                      }
-                      
-                      const metodoMap = {
-                        1: "Genético", 2: "Biopsia", 3: "Clínico"
-                      }
-
-                      return (
-                        <tr key={patient.record_id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                          <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {patient.record_id}
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {patient.edad_ingresada || "N/A"}
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {patient.sexo === 1 ? "M" : patient.sexo === 2 ? "F" : "N/A"}
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {provinceMap[patient.provincia] || "N/A"}
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {sintomaMap[patient.sintoma_inicial] || "N/A"}
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <div className="flex flex-col">
-                              <span>{patient.valor_mmse_moca1 || "N/A"}</span>
-                              {patient.valor_mmse_moca2 && (
-                                <span className="text-xs text-gray-500">({patient.valor_mmse_moca2})</span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              patient.metodo_diagnostico === 1 ? "bg-blue-100 text-blue-800" :
-                              patient.metodo_diagnostico === 2 ? "bg-green-100 text-green-800" :
-                              "bg-yellow-100 text-yellow-800"
-                            }`}>
-                              {metodoMap[patient.metodo_diagnostico] || "N/A"}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4 text-sm text-gray-900 max-w-xs">
-                            <div className="truncate" title={patient.resultado_genetico}>
-                              {patient.resultado_genetico && patient.resultado_genetico.includes("NOTCH3") ? (
-                                <span className="text-green-700 font-medium">Positivo (NOTCH3)</span>
-                              ) : patient.resultado_genetico && patient.resultado_genetico.includes("Positivo") ? (
-                                <span className="text-green-700">Positivo</span>
-                              ) : patient.resultado_genetico && patient.resultado_genetico.includes("Pendiente") ? (
-                                <span className="text-yellow-700">Pendiente</span>
-                              ) : (
-                                <span className="text-gray-500">N/A</span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {patient.exon ? (
-                              <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
-                                {patient.exon}
-                              </span>
-                            ) : (
-                              "N/A"
-                            )}
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              patient.antecedentes_familiares === 1 ? "bg-red-100 text-red-800" : "bg-gray-100 text-gray-800"
-                            }`}>
-                              {patient.antecedentes_familiares === 1 ? "Sí" : patient.antecedentes_familiares === 0 ? "No" : "N/A"}
-                            </span>
-                          </td>
-                        </tr>
-                      )}
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              {/* Tabla responsive con ordenamiento */}
+              <SortableTable
+                data={filteredData}
+                columns={tableColumns}
+                emptyMessage="No hay datos que coincidan con los filtros aplicados"
+              />
 
               {/* Información adicional */}
               <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm">
