@@ -82,6 +82,12 @@ function processDiagnosisMethod(patient: any): number {
   return 4 // Nexo familiar confirmado
 }
 
+// Helper function to normalize REDCap checkbox values (handles "1", 1, "0", 0, "", null, undefined)
+function normalizeCheckboxValue(value: any): number {
+  if (value === 1 || value === "1") return 1
+  return 0
+}
+
 // Validate and process patient data
 function processPatientData(patient: any): any {
   const calculatedAge = calculateAge(patient.fecha_nacimiento)
@@ -103,8 +109,29 @@ function processPatientData(patient: any): any {
   // Process diagnosis method
   const diagnosisMethod = processDiagnosisMethod(patient)
   
+  // Normalize risk factor fields to ensure consistent data types
+  const normalizedRiskFactors = {
+    factores_riesgo___1: normalizeCheckboxValue(patient.factores_riesgo___1), // Hipertensión
+    factores_riesgo___2: normalizeCheckboxValue(patient.factores_riesgo___2), // Diabetes
+    factores_riesgo___3: normalizeCheckboxValue(patient.factores_riesgo___3), // Dislipidemia
+    factores_riesgo___4: normalizeCheckboxValue(patient.factores_riesgo___4), // Tabaquismo
+    factores_riesgo___5: normalizeCheckboxValue(patient.factores_riesgo___5), // Obesidad
+    factores_riesgo___6: normalizeCheckboxValue(patient.factores_riesgo___6),
+    factores_riesgo___7: normalizeCheckboxValue(patient.factores_riesgo___7),
+    factores_riesgo___8: normalizeCheckboxValue(patient.factores_riesgo___8),
+    factores_riesgo___9: normalizeCheckboxValue(patient.factores_riesgo___9),
+    factores_riesgo___10: normalizeCheckboxValue(patient.factores_riesgo___10),
+    factores_riesgo___11: normalizeCheckboxValue(patient.factores_riesgo___11),
+    factores_riesgo___12: normalizeCheckboxValue(patient.factores_riesgo___12),
+    factores_riesgo___13: normalizeCheckboxValue(patient.factores_riesgo___13),
+    factores_riesgo___14: normalizeCheckboxValue(patient.factores_riesgo___14),
+    factores_riesgo___15: normalizeCheckboxValue(patient.factores_riesgo___15),
+    factores_riesgo___16: normalizeCheckboxValue(patient.factores_riesgo___16),
+  }
+  
   return {
     ...patient,
+    ...normalizedRiskFactors, // Override with normalized values
     edad_actual: calculatedAge, // Only use calculated age, no fallback
     metodo_diagnostico: diagnosisMethod, // Use processed diagnosis method
     validation_warnings: warnings,
@@ -691,6 +718,7 @@ export default function CadasilDashboard() {
         factores_riesgo___3: row.factores_riesgo___3,
         factores_riesgo___4: row.factores_riesgo___4,
         factores_riesgo___5: row.factores_riesgo___5,
+        factores_riesgo___6: row.factores_riesgo___6,
       }))
 
       // Apply validation and age calculation to CSV data
@@ -921,12 +949,13 @@ export default function CadasilDashboard() {
 
 
     // Factores de riesgo vascular (como en el estudio)
+    // Data is now normalized by processPatientData function, so we can use simple comparison
     const vascularRiskFactors = {
       Hipertensión: filteredData.filter((row) => row.factores_riesgo___1 === 1).length,
       Diabetes: filteredData.filter((row) => row.factores_riesgo___2 === 1).length,
       Dislipidemia: filteredData.filter((row) => row.factores_riesgo___3 === 1).length,
       Tabaquismo: filteredData.filter((row) => row.factores_riesgo___4 === 1).length,
-      Obesidad: filteredData.filter((row) => row.factores_riesgo___5 === 1).length,
+      "Sobrepeso/Obesidad": filteredData.filter((row) => row.factores_riesgo___5 === 1 || row.factores_riesgo___6 === 1).length,
     }
 
     return {
@@ -1450,12 +1479,24 @@ export default function CadasilDashboard() {
               <div className="bg-white p-6 rounded-lg shadow-md">
                 <h3 className="text-lg font-semibold mb-4 text-gray-900">Factores de Riesgo Vascular</h3>
                 <div className="text-sm text-gray-600 mb-4">Comorbilidades más frecuentes en la cohorte</div>
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={advancedAnalysis.vascularRiskFactors} layout="horizontal">
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={advancedAnalysis.vascularRiskFactors}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis type="number" />
-                    <YAxis dataKey="name" type="category" width={80} />
-                    <Tooltip />
+                    <XAxis 
+                      dataKey="name" 
+                      angle={-45} 
+                      textAnchor="end" 
+                      height={80}
+                      interval={0}
+                      fontSize={12}
+                    />
+                    <YAxis 
+                      label={{ value: 'Número de Pacientes', angle: -90, position: 'insideLeft' }}
+                    />
+                    <Tooltip 
+                      formatter={(value, name) => [`${value} pacientes`, 'Prevalencia']}
+                      labelFormatter={(label) => `${label}`}
+                    />
                     <Bar dataKey="value" fill={MEDICAL_COLORS.tertiary} />
                   </BarChart>
                 </ResponsiveContainer>

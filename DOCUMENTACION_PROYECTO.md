@@ -1527,17 +1527,27 @@ const futureMetrics = {
 ### **Fase 1: Completada ✅**
 - [x] Dashboard básico con visualizaciones
 - [x] Carga de datos CSV
-- [x] Sistema de filtros
+- [x] Sistema de filtros avanzados
 - [x] Tabla de pacientes con export
 - [x] Cálculo correcto de edades
 - [x] Procesamiento de métodos diagnósticos
+- [x] Ordenación dinámica de tablas (Agosto 2024)
+- [x] Múltiples tipos de gráficos médicos implementados
+- [x] Sistema de pestañas completo (Resumen, Demografía, Genética, Progresión, Nacional)
 
 ### **Fase 2: En Desarrollo 🚧**
+- [x] Funcionalidad de ordenación de columnas implementada
 - [ ] Integración completa con Supabase
 - [ ] API REDCap funcional
 - [ ] Autenticación de usuarios
 - [ ] Roles y permisos (investigador/admin)
 - [ ] Backup automático de datos
+
+### **Actualizaciones Recientes (Agosto 2024)**
+- ✅ Implementada funcionalidad de ordenación dinámica de tablas
+- ✅ Mejorada experiencia de usuario con iconos de ordenación
+- ✅ Optimización de rendimiento en filtrado de datos
+- ✅ Documentación técnica expandida y actualizada
 
 ### **Fase 3: Futuras Mejoras 🔮**
 - [ ] Dashboard móvil optimizado
@@ -1608,9 +1618,14 @@ const futureMetrics = {
 
 ---
 
-**Última actualización**: Agosto 2025  
-**Versión de la documentación**: 1.0  
+**Última actualización**: Agosto 2024  
+**Versión de la documentación**: 1.1  
 **Estado del proyecto**: En desarrollo activo
+
+### **Historial de Cambios**
+- **Agosto 2024**: Implementación de ordenación dinámica de tablas, mejoras en UX
+- **Agosto 2024**: Expansión de documentación técnica y análisis avanzados
+- **Julio 2024**: Versión inicial con dashboard básico y visualizaciones
 
 ---
 

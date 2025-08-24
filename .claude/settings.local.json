@@ -23,7 +23,8 @@
       "Bash(npx next lint:*)",
       "Bash(taskkill:*)",
       "Bash(grep:*)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "Bash(npx next dev:*)"
     ],
     "defaultMode": "acceptEdits"
   }
