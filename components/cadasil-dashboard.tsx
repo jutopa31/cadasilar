@@ -3237,11 +3237,22 @@ export default function CadasilDashboard() {
       <div className="bg-white rounded-lg shadow-md p-6 mt-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
           <div>
-            <h4 className="font-semibold text-gray-900 mb-2">Contacto Principal</h4>
+            <h4 className="font-semibold text-gray-900 mb-2">Contacto</h4>
             <div className="text-gray-600">
-              <div>Carolina Agata Ardohain Cristalli, MD</div>
-              <div>FLENI, Buenos Aires, Argentina</div>
-              <div className="text-blue-600">caroardohain@gmail.com</div>
+              <div className="text-blue-600 mb-2">cadasilar@gmail.com</div>
+              <div className="mb-2">
+                <div>Carolina Agata Ardohain Cristalli, MD</div>
+                <div>FLENI, Buenos Aires, Argentina</div>
+                <div className="text-blue-600">caroardohain@gmail.com</div>
+              </div>
+              <div className="text-blue-600 space-y-1">
+                <div>julietarosales1987@gmail.com</div>
+                <div>jilopez19875@gmail.com</div>
+                <div>favbiogonzalez1897@gmail.com</div>
+                <div>dianacristalli@gmail.com</div>
+                <div>selvaggivalentin@gmail.com</div>
+                <div>julian.martin.alonso@gmail.com</div>
+              </div>
             </div>
           </div>
 
