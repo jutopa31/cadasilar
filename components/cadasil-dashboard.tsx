@@ -42,6 +42,7 @@ import {
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
+  FileText,
 } from "lucide-react"
 
 // Calculate actual age from birth date
@@ -212,11 +213,108 @@ function exportToCSV(data: any[], filename: string = 'pacientes-cadasilar.csv') 
   document.body.removeChild(link)
 }
 
+// Export filtered patients to PDF with specific fields only
+function exportToPDF(data: any[], filename: string = 'pacientes-cadasilar.pdf') {
+  if (!data || data.length === 0) {
+    alert('No hay datos para exportar')
+    return
+  }
+
+  // Dynamic import to avoid SSR issues
+  Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable')
+  ]).then(([jsPDFModule, autoTableModule]) => {
+    const jsPDF = jsPDFModule.default
+    // Get autoTable function directly
+    const autoTable = autoTableModule.default
+    const doc = new jsPDF('landscape')
+
+    // Add title and header information
+    doc.setFontSize(16)
+    doc.text('REGISTRO NACIONAL CADASIL ARGENTINA', 20, 20)
+    doc.setFontSize(12)
+    doc.text('Reporte de Pacientes Filtrados', 20, 30)
+    doc.setFontSize(10)
+    doc.text(`Generado el: ${new Date().toLocaleString('es-AR')}`, 20, 40)
+    doc.text(`Total de pacientes: ${data.length}`, 20, 48)
+
+    // Define the specific columns requested by user
+    const columns = [
+      'ID',
+      'Nombre',
+      'Médico Derivante', 
+      'Fecha Nacimiento',
+      'Diagnóstico Genético',
+      'Exón'
+    ]
+
+    // Map data to PDF format with only requested fields
+    const pdfData = data.map(patient => [
+      patient.record_id || '',
+      patient.nombre_apellido || 'Sin nombre',
+      patient.medico_derivante || 'No especificado',
+      patient.fecha_nacimiento || 'No disponible',
+      patient.resultado_genetico || 'No disponible',
+      patient.exon ? `Exón ${patient.exon}` : 'No especificado'
+    ])
+
+    // Add table to PDF using autoTable
+    autoTable(doc, {
+      startY: 55,
+      head: [columns],
+      body: pdfData,
+      styles: { 
+        fontSize: 8,
+        cellPadding: 2
+      },
+      headStyles: { 
+        fillColor: [59, 130, 246],
+        textColor: 255,
+        fontSize: 9,
+        fontStyle: 'bold'
+      },
+      alternateRowStyles: { 
+        fillColor: [248, 250, 252]
+      },
+      margin: { top: 55, left: 10, right: 10 },
+      tableWidth: 'auto',
+      columnStyles: {
+        0: { cellWidth: 25 },
+        1: { cellWidth: 45 },
+        2: { cellWidth: 45 },
+        3: { cellWidth: 35 },
+        4: { cellWidth: 60 },
+        5: { cellWidth: 25 }
+      }
+    })
+
+    // Add footer with page numbers
+    const pageCount = doc.internal.getNumberOfPages()
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i)
+      doc.setFontSize(8)
+      doc.text(
+        `Página ${i} de ${pageCount} | CADASILAR - Registro Nacional CADASIL Argentina`,
+        doc.internal.pageSize.width / 2,
+        doc.internal.pageSize.height - 10,
+        { align: 'center' }
+      )
+    }
+
+    // Save the PDF
+    doc.save(filename)
+  }).catch((error) => {
+    console.error('Error loading PDF libraries:', error)
+    alert('Error al cargar las librerías PDF. Por favor, intenta nuevamente.')
+  })
+}
+
 export default function CadasilDashboard() {
-  const [data, setData] = useState([])
+  const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedTab, setSelectedTab] = useState("overview")
-  const [comparisonData, setComparisonData] = useState(null)
+  const [comparisonData, setComparisonData] = useState<any>(null)
   const [filters, setFilters] = useState({
     ageRange: [0, 100],
     sex: "all",
@@ -656,6 +754,9 @@ export default function CadasilDashboard() {
       const fallbackData = [
         {
           record_id: 5,
+          nombre_apellido: "Paciente de Ejemplo",
+          medico_derivante: "Dr. Ejemplo",
+          fecha_nacimiento: "1970-11-07",
           edad_ingresada: 54,
           sexo: 1,
           provincia: 1,
@@ -693,6 +794,7 @@ export default function CadasilDashboard() {
       const mappedData = mainRecords.map((row) => ({
         record_id: row.record_id,
         nombre_apellido: row.nombre_apellido,
+        medico_derivante: row.medico_derivante,
         fecha_nacimiento: row.fecha_nacimiento,
         edad_ingresada: row.edad_ingresada || 0,
         edad_inicio: row.edad_inicio,
@@ -2447,15 +2549,24 @@ export default function CadasilDashboard() {
                   <div className="text-sm text-gray-600">
                     Datos filtrados según criterios seleccionados
                   </div>
-                  <button
-                    onClick={() => exportToCSV(filteredData, `pacientes-cadasilar-${new Date().toISOString().split('T')[0]}.csv`)}
-                    className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
-                  >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Exportar CSV
-                  </button>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => exportToCSV(filteredData, `pacientes-cadasilar-${new Date().toISOString().split('T')[0]}.csv`)}
+                      className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Exportar CSV
+                    </button>
+                    <button
+                      onClick={() => exportToPDF(filteredData, `pacientes-cadasilar-${new Date().toISOString().split('T')[0]}.pdf`)}
+                      className="inline-flex items-center px-4 py-2 border border-red-300 rounded-md shadow-sm text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+                    >
+                      <FileText className="w-4 h-4 mr-2" />
+                      Exportar PDF
+                    </button>
+                  </div>
                 </div>
               </div>
 
